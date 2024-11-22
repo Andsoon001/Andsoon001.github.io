@@ -2,10 +2,25 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 const startScreen = document.getElementById('start-screen');
+const gameOverScreen = document.getElementById('game-over-screen');
 const controlsText = document.getElementById('controls');
+const finalScoreElement = document.getElementById('final-score');
+const highScoreElement = document.getElementById('high-score');
+const startButton = document.getElementById('startButton');
+const restartButton = document.getElementById('restartButton');
 
-canvas.width = 320;
-canvas.height = 480;
+let highScore = localStorage.getItem('highScore') || 0;
+highScoreElement.textContent = highScore;
+
+// 设置画布尺寸
+function setupCanvas() {
+    const container = canvas.parentElement;
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+}
+
+setupCanvas();
+window.addEventListener('resize', setupCanvas);
 
 const state = {
     bird: {
@@ -16,16 +31,18 @@ const state = {
         height: 35,
         color: '#FFD700'
     },
-    gravity: 0.2,         // 降低重力
-    jumpForce: -5,        // 减小跳跃力度
+    gravity: 0.25,
+    jumpForce: -5.5,
     pipes: [],
     score: 0,
     gameOver: false,
     gameStarted: false,
-    pipeGap: 200,         // 增加管道间隙
+    pipeGap: 200,
     pipeWidth: 60,
-    pipeSpacing: 280,     // 增加管道之间的距离
-    pipeSpeed: 1.5        // 降低管道移动速度
+    pipeSpacing: 280,
+    pipeSpeed: 2,
+    lastTime: 0,
+    deltaTime: 0
 };
 
 function createPipe() {
@@ -40,7 +57,7 @@ function createPipe() {
     };
 }
 
-function update() {
+function update(deltaTime) {
     if (!state.gameStarted || state.gameOver) return;
 
     // 更新小鸟
@@ -94,63 +111,46 @@ function checkCollision(bird, pipe) {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 绘制背景云朵
     drawClouds();
-
-    // 绘制小鸟（圆形）
+    
+    // 绘制小鸟
+    const birdRotation = state.bird.velocity * 0.1;
+    ctx.save();
+    ctx.translate(state.bird.x + state.bird.width/2, state.bird.y + state.bird.height/2);
+    ctx.rotate(birdRotation);
+    
+    // 小鸟身体
     ctx.beginPath();
-    ctx.arc(
-        state.bird.x + state.bird.width/2,
-        state.bird.y + state.bird.height/2,
-        state.bird.width/2,
-        0,
-        Math.PI * 2
-    );
+    ctx.arc(0, 0, state.bird.width/2, 0, Math.PI * 2);
     ctx.fillStyle = state.bird.color;
     ctx.fill();
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // 绘制眼睛
+    // 小鸟眼睛
     ctx.beginPath();
-    ctx.arc(
-        state.bird.x + state.bird.width * 0.7,
-        state.bird.y + state.bird.height * 0.4,
-        4,
-        0,
-        Math.PI * 2
-    );
+    ctx.arc(state.bird.width * 0.2, -state.bird.height * 0.1, 4, 0, Math.PI * 2);
     ctx.fillStyle = '#000';
     ctx.fill();
 
+    ctx.restore();
+
     // 绘制管道
     state.pipes.forEach(pipe => {
-        // 上管道
         drawPipe(pipe.x, 0, state.pipeWidth, pipe.top, true);
-        // 下管道
         drawPipe(pipe.x, pipe.top + state.pipeGap, state.pipeWidth, 
             canvas.height - (pipe.top + state.pipeGap), false);
     });
-
-    // 游戏结束显示
-    if (state.gameOver) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.font = '30px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('游戏结束', canvas.width / 2, canvas.height / 2 - 30);
-        ctx.font = '24px Arial';
-        ctx.fillText(`得分: ${state.score}`, canvas.width / 2, canvas.height / 2 + 10);
-        ctx.font = '20px Arial';
-        ctx.fillText('点击重新开始', canvas.width / 2, canvas.height / 2 + 50);
-    }
 }
 
 function drawPipe(x, y, width, height, isTop) {
     // 管道主体
-    ctx.fillStyle = '#2ecc71';
+    const gradient = ctx.createLinearGradient(x, y, x + width, y);
+    gradient.addColorStop(0, '#2ecc71');
+    gradient.addColorStop(1, '#27ae60');
+    
+    ctx.fillStyle = gradient;
     ctx.fillRect(x, y, width, height);
     
     // 管道边框
@@ -188,17 +188,17 @@ function drawCloud(x, y) {
     ctx.fill();
 }
 
-function gameLoop() {
-    update();
+function gameLoop(timestamp) {
+    state.deltaTime = timestamp - state.lastTime;
+    state.lastTime = timestamp;
+
+    update(state.deltaTime);
     draw();
     requestAnimationFrame(gameLoop);
 }
 
 function jump() {
-    if (state.gameOver) {
-        resetGame();
-        return;
-    }
+    if (state.gameOver) return;
     if (!state.gameStarted) return;
     state.bird.velocity = state.jumpForce;
 }
@@ -206,6 +206,14 @@ function jump() {
 function gameOver() {
     state.gameOver = true;
     controlsText.style.display = 'none';
+    gameOverScreen.style.display = 'flex';
+    finalScoreElement.textContent = state.score;
+    
+    if (state.score > highScore) {
+        highScore = state.score;
+        localStorage.setItem('highScore', highScore);
+        highScoreElement.textContent = highScore;
+    }
 }
 
 function resetGame() {
@@ -216,6 +224,7 @@ function resetGame() {
     state.score = 0;
     scoreElement.textContent = '0';
     startScreen.style.display = 'flex';
+    gameOverScreen.style.display = 'none';
     state.gameStarted = false;
     controlsText.style.display = 'block';
 }
@@ -226,32 +235,33 @@ function startGame() {
 }
 
 // 事件监听
-canvas.addEventListener('click', (e) => {
+function handleInteraction(e) {
     e.preventDefault();
     if (!state.gameStarted && !state.gameOver) {
         startGame();
+    } else if (state.gameOver) {
+        resetGame();
+    } else {
+        jump();
     }
-    jump();
-});
+}
 
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (!state.gameStarted && !state.gameOver) {
-        startGame();
-    }
-    jump();
-});
-
+canvas.addEventListener('click', handleInteraction);
+canvas.addEventListener('touchstart', handleInteraction, { passive: false });
 document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
-        if (!state.gameStarted && !state.gameOver) {
-            startGame();
-        }
-        jump();
+        handleInteraction(e);
     }
 });
 
-// 开始游戏循环
+startButton.addEventListener('click', () => {
+    startGame();
+    jump();
+});
+
+restartButton.addEventListener('click', resetGame);
+
+// 启动游戏
 resetGame();
-gameLoop();
+gameLoop(0);
