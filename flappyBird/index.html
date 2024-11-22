@@ -2,9 +2,9 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>简单版 Flappy Bird</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Bird</title>
+    <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
     <div class="game-container">
@@ -14,9 +14,15 @@
         <div id="start-screen">
             <h1>Flappy Bird</h1>
             <p>避开障碍物，尽可能走得更远</p>
-            <button class="button" onclick="startGame()">开始游戏</button>
+            <button class="button" id="startButton">开始游戏</button>
+        </div>
+        <div id="game-over-screen" style="display: none;">
+            <h2>游戏结束</h2>
+            <p>得分: <span id="final-score">0</span></p>
+            <p>最高分: <span id="high-score">0</span></p>
+            <button class="button" id="restartButton">重新开始</button>
         </div>
     </div>
-    <script src="game.js"></script>
+    <script src="./game.js"></script>
 </body>
 </html>
